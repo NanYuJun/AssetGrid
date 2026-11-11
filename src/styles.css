@@ -135,3 +135,7 @@
 .sidebar-template-pane>.template-scroll-region>.custom-heading{margin-top:23px}
 .sidebar-template-pane>.add-template{flex:none;margin-top:8px}
 .sidebar-template-pane>.sidebar-intro{flex:none;padding-bottom:13px}
+
+.panel-actions{display:flex;align-items:center;gap:10px}
+.panel-template{font-size:10px;white-space:nowrap}
+@media(max-width:620px){.panel-actions{gap:7px}.panel-template{font-size:9px}}

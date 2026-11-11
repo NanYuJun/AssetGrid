@@ -366,6 +366,45 @@ async function saveTemplate() {
   } catch (error) { notify(`模板保存失败：${error.message}`, 'error') }
 }
 
+function uniqueTemplateName(base) {
+  const names = new Set(templates.value.map(template => template.name))
+  if (!names.has(base)) return base
+  let index = 2
+  while (names.has(`${base} ${index}`)) index += 1
+  return `${base} ${index}`
+}
+
+function saveProjectAsTemplate() {
+  if (!activeProject.value || mode.value !== 'project') return
+  dialog.value = { type: 'templateName', name: uniqueTemplateName(`${activeProject.value.name}模板`) }
+}
+
+async function confirmSaveProjectAsTemplate() {
+  if (!activeProject.value || dialog.value?.type !== 'templateName') return
+  const trimmed = dialog.value.name.trim()
+  if (!trimmed) return notify('请为模板输入名称', 'error')
+  if (templates.value.some(template => template.name === trimmed)) return notify('已有同名模板，请换一个名称', 'error')
+  const source = activeProject.value
+  const template = {
+    id: uid(),
+    name: trimmed,
+    kind: 'custom',
+    canvas: { ...source.canvas, divider: getCanvasDivider(source.canvas) },
+    rows: source.rows.map(row => ({
+      id: uid(), weight: row.weight,
+      cells: row.cells.map(cell => ({ id: uid(), weight: cell.weight, imageId: null, crop: freshCrop() })),
+    })),
+    createdAt: now(),
+    updatedAt: now(),
+  }
+  try {
+    await putTemplate(clone(template))
+    templates.value.unshift(clone(template))
+    dialog.value = null
+    notify(`已保存为模板“${template.name}”`)
+  } catch (error) { notify(`模板保存失败：${error.message}`, 'error') }
+}
+
 async function removeTemplate(template) {
   if (!window.confirm(`删除模板“${template.name}”？已有作品不受影响。`)) return
   try {
@@ -905,7 +944,7 @@ onBeforeUnmount(() => {
         <div v-if="loading" class="loading-screen">正在打开你的工作台…</div>
         <template v-else-if="current">
           <div class="editor-panel">
-            <div class="panel-topline"><span class="panel-label">{{ mode === 'template' ? '模板设置' : '当前作品' }}</span><span v-if="mode === 'template'" class="panel-number">LAYOUT</span><button v-else class="button button-dark panel-export" @click="dialog = { type: 'export' }">↓ 保存图片</button></div>
+            <div class="panel-topline"><span class="panel-label">{{ mode === 'template' ? '模板设置' : '当前作品' }}</span><span v-if="mode === 'template'" class="panel-number">LAYOUT</span><div v-else class="panel-actions"><button class="text-link panel-template" @click="saveProjectAsTemplate">存为模板</button><button class="button button-dark panel-export" @click="dialog = { type: 'export' }">↓ 保存图片</button></div></div>
             <div class="project-line"><input class="project-name" :value="current.name" :aria-label="mode === 'template' ? '模板名称' : '作品名称'" maxlength="60" @change="updateName" /><span class="name-edit-icon">✎</span><span class="project-meta">{{ current.rows.reduce((sum, row) => sum + row.cells.length, 0) }} 格 · {{ current.canvas.width }} × {{ current.canvas.height }} px</span></div>
             <div class="control-divider"></div>
             <div class="controls-row">
@@ -965,7 +1004,7 @@ onBeforeUnmount(() => {
     <input ref="uploadInput" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" @change="handleUpload" />
     <input ref="importInput" class="visually-hidden" type="file" accept="application/json,.json" @change="handleImport" />
 
-    <div v-if="dialog" class="modal-backdrop" @click.self="dialog = null"><div class="modal-card"><button class="modal-close" aria-label="关闭" @click="dialog = null">×</button><template v-if="dialog.type === 'create'"><div class="modal-kicker">NEW CANVAS</div><h2>新建宫格作品</h2><p>选择画布尺寸，从「{{ dialog.template.name }}」开始。</p><label class="modal-field">作品名称<input v-model="dialog.name" maxlength="60" placeholder="未命名作品" /></label><div class="modal-field"><span>快速选择尺寸</span><div class="shape-options"><button :class="{ active: dialog.width === dialog.height }" @click="setCreateShape('square')"><span class="shape-icon shape-square"></span>正方形</button><button :class="{ active: dialog.width > dialog.height }" @click="setCreateShape('landscape')"><span class="shape-icon shape-landscape"></span>横向</button><button :class="{ active: dialog.width < dialog.height }" @click="setCreateShape('portrait')"><span class="shape-icon shape-portrait"></span>纵向</button></div></div><div class="modal-dimensions"><label class="modal-field">宽度 <em>PX</em><input v-model.number="dialog.width" type="number" min="128" max="16384" /></label><span>×</span><label class="modal-field">高度 <em>PX</em><input v-model.number="dialog.height" type="number" min="128" max="16384" /></label></div><button class="button button-dark modal-primary" @click="createFromDialog">创建作品 ↗</button></template><template v-else-if="dialog.type === 'export'"><div class="modal-kicker">EXPORT YOUR WORK</div><h2>导出整张宫格</h2><p>按 {{ activeProject.canvas.width }} × {{ activeProject.canvas.height }} 像素生成清晰图片。</p><div class="modal-field"><span>文件格式</span><div class="format-options"><button :class="{ active: exportFormat === 'png' }" @click="exportFormat = 'png'"><strong>PNG</strong><small>清晰无损</small></button><button :class="{ active: exportFormat === 'jpg' }" @click="exportFormat = 'jpg'"><strong>JPG</strong><small>文件更小</small></button></div></div><label v-if="exportFormat === 'jpg'" class="quality-field">画质 <strong>{{ Math.round(jpegQuality * 100) }}%</strong><input v-model.number="jpegQuality" type="range" min="0.7" max="1" step="0.01" /></label><button class="button button-dark modal-primary" :disabled="savingFile" @click="exportImage">{{ savingFile ? '正在生成…' : `导出 ${exportFormat.toUpperCase()} 图片 ↗` }}</button></template></div></div>
+    <div v-if="dialog" class="modal-backdrop" @click.self="dialog = null"><div class="modal-card"><button class="modal-close" aria-label="关闭" @click="dialog = null">×</button><template v-if="dialog.type === 'create'"><div class="modal-kicker">NEW CANVAS</div><h2>新建宫格作品</h2><p>选择画布尺寸，从「{{ dialog.template.name }}」开始。</p><label class="modal-field">作品名称<input v-model="dialog.name" maxlength="60" placeholder="未命名作品" /></label><div class="modal-field"><span>快速选择尺寸</span><div class="shape-options"><button :class="{ active: dialog.width === dialog.height }" @click="setCreateShape('square')"><span class="shape-icon shape-square"></span>正方形</button><button :class="{ active: dialog.width > dialog.height }" @click="setCreateShape('landscape')"><span class="shape-icon shape-landscape"></span>横向</button><button :class="{ active: dialog.width < dialog.height }" @click="setCreateShape('portrait')"><span class="shape-icon shape-portrait"></span>纵向</button></div></div><div class="modal-dimensions"><label class="modal-field">宽度 <em>PX</em><input v-model.number="dialog.width" type="number" min="128" max="16384" /></label><span>×</span><label class="modal-field">高度 <em>PX</em><input v-model.number="dialog.height" type="number" min="128" max="16384" /></label></div><button class="button button-dark modal-primary" @click="createFromDialog">创建作品 ↗</button></template><template v-else-if="dialog.type === 'templateName'"><div class="modal-kicker">SAVE AS TEMPLATE</div><h2>存为模板</h2><p>保存当前作品的版式与画布设置，图片不会包含在模板中。</p><label class="modal-field">模板名称<input v-model="dialog.name" maxlength="60" placeholder="模板名称" /></label><button class="button button-dark modal-primary" @click="confirmSaveProjectAsTemplate">保存模板 ↗</button></template><template v-else-if="dialog.type === 'export'"><div class="modal-kicker">EXPORT YOUR WORK</div><h2>导出整张宫格</h2><p>按 {{ activeProject.canvas.width }} × {{ activeProject.canvas.height }} 像素生成清晰图片。</p><div class="modal-field"><span>文件格式</span><div class="format-options"><button :class="{ active: exportFormat === 'png' }" @click="exportFormat = 'png'"><strong>PNG</strong><small>清晰无损</small></button><button :class="{ active: exportFormat === 'jpg' }" @click="exportFormat = 'jpg'"><strong>JPG</strong><small>文件更小</small></button></div></div><label v-if="exportFormat === 'jpg'" class="quality-field">画质 <strong>{{ Math.round(jpegQuality * 100) }}%</strong><input v-model.number="jpegQuality" type="range" min="0.7" max="1" step="0.01" /></label><button class="button button-dark modal-primary" :disabled="savingFile" @click="exportImage">{{ savingFile ? '正在生成…' : `导出 ${exportFormat.toUpperCase()} 图片 ↗` }}</button></template></div></div>
 
     <div v-if="assetPicker" class="modal-backdrop" @click.self="assetPicker = false"><div class="modal-card library-modal"><button class="modal-close" aria-label="关闭" @click="assetPicker = false">×</button><div class="modal-kicker">IMAGE LIBRARY</div><h2>我的图片素材</h2><p>{{ pickerCellId ? '选择一张图片放入当前格子。' : '你上传的图片会保存在当前浏览器中，供不同作品复用。' }}</p><button class="button button-outline library-upload" @click="triggerUpload(pickerCellId)">＋ 上传新图片</button><div class="asset-grid"><div v-for="asset in assets" :key="asset.id" class="asset-card"><button class="asset-select" :disabled="!pickerCellId" @click="assignAsset(asset)"><img :src="assetUrls[asset.id]" :alt="asset.name" /><span>{{ asset.name }}</span></button><button class="asset-delete" :aria-label="`删除${asset.name}`" title="删除图片" @click="removeAsset(asset)">×</button></div><p v-if="!assets.length" class="asset-empty">还没有图片素材。上传一张开始吧。</p></div></div></div>
 
