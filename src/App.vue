@@ -78,6 +78,11 @@ const historyTemplateOptions = computed(() => {
 const filteredProjects = computed(() => projects.value.filter(project => selectedHistoryTemplate.value === 'all' || project.templateId === selectedHistoryTemplate.value))
 const canUndo = computed(() => undoStack.value.length > 0)
 const canRedo = computed(() => redoStack.value.length > 0)
+const linkColumns = ref(false)
+const columnsAligned = computed(() => {
+  const rows = current.value?.rows
+  return Boolean(rows?.length) && rows.every(row => row.cells.length === rows[0].cells.length)
+})
 
 function notify(message, kind = 'info') {
   toast.value = { message, kind }
@@ -507,7 +512,7 @@ function beginResize(event, box, direction) {
   const siblings = direction === 'x' ? row.cells : current.value.rows
   const index = direction === 'x' ? cellIndex : rowIndex
   if (index >= siblings.length - 1) return
-  const columnsAlign = direction === 'x' && current.value.rows.every(item => item.cells.length === row.cells.length)
+  const columnsAlign = direction === 'x' && linkColumns.value && columnsAligned.value
   const columnPairs = columnsAlign
     ? current.value.rows.map(item => ({
       first: item.cells[index], second: item.cells[index + 1],
@@ -982,7 +987,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="canvas-section">
-            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><span class="zoom-label">100% 适配</span></div></div>
+            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><label v-if="columnsAligned" class="link-columns" :class="{ active: linkColumns }"><input v-model="linkColumns" type="checkbox" /><span>整列联动</span></label><span class="zoom-label">{{ columnsAligned ? (linkColumns ? '整列拖动' : '单行拖动') : '各行独立' }}</span></div></div>
             <div class="canvas-stage">
               <div class="stage-ornament stage-ornament-a"></div><div class="stage-ornament stage-ornament-b"></div>
               <div ref="board" class="canvas-board" :style="{ aspectRatio: `${current.canvas.width} / ${current.canvas.height}`, background: current.canvas.background }">
