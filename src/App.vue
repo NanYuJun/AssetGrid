@@ -507,11 +507,19 @@ function beginResize(event, box, direction) {
   const siblings = direction === 'x' ? row.cells : current.value.rows
   const index = direction === 'x' ? cellIndex : rowIndex
   if (index >= siblings.length - 1) return
+  const columnsAlign = direction === 'x' && current.value.rows.every(item => item.cells.length === row.cells.length)
+  const columnPairs = columnsAlign
+    ? current.value.rows.map(item => ({
+      first: item.cells[index], second: item.cells[index + 1],
+      firstWeight: item.cells[index].weight, secondWeight: item.cells[index + 1].weight,
+    }))
+    : null
   dragState = {
     kind: 'resize', direction, startX: event.clientX, startY: event.clientY,
     siblings, index, firstWeight: siblings[index].weight, secondWeight: siblings[index + 1].weight,
     totalWeight: siblings.reduce((sum, item) => sum + item.weight, 0),
     available: direction === 'x' ? boardWidth.value - current.value.canvas.gap * boardWidth.value / current.value.canvas.width * (siblings.length - 1) : boardHeight.value - current.value.canvas.gap * boardWidth.value / current.value.canvas.width * (siblings.length - 1),
+    columnPairs,
     before: mode.value === 'project' ? clone(activeProject.value) : null,
   }
   event.currentTarget.setPointerCapture(event.pointerId)
@@ -528,8 +536,17 @@ function handleResizeMove(event) {
   const pairWeight = state.firstWeight + state.secondWeight
   const minWeight = Math.min(36 / state.available * state.totalWeight, pairWeight / 2 - 0.001)
   const first = clamp(state.firstWeight + deltaWeight, minWeight, pairWeight - minWeight)
-  state.siblings[state.index].weight = first
-  state.siblings[state.index + 1].weight = pairWeight - first
+  if (state.columnPairs) {
+    const ratio = first / (state.firstWeight + state.secondWeight)
+    for (const pair of state.columnPairs) {
+      const nextFirst = (pair.firstWeight + pair.secondWeight) * ratio
+      pair.first.weight = nextFirst
+      pair.second.weight = pair.firstWeight + pair.secondWeight - nextFirst
+    }
+  } else {
+    state.siblings[state.index].weight = first
+    state.siblings[state.index + 1].weight = pairWeight - first
+  }
   if (mode.value === 'project') scheduleSave()
 }
 
