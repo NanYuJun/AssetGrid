@@ -657,7 +657,7 @@ async function handleUpload(event) {
     assetUrls.value[asset.id] = URL.createObjectURL(file)
     if (pickerCellId.value) {
       const cell = activeProject.value?.rows.flatMap(row => row.cells).find(item => item.id === pickerCellId.value)
-      if (cell) changeProject(() => { cell.imageId = asset.id; cell.crop = freshCrop() })
+      if (cell) changeProject(() => attachImage(cell, asset.id))
       assetPicker.value = false
     }
     notify('图片已加入素材库')
@@ -669,10 +669,16 @@ function openAssetPicker(cellId) {
   assetPicker.value = true
 }
 
+function attachImage(cell, imageId) {
+  const hasPlacedImage = Boolean(cell.imageId && cell.crop)
+  cell.imageId = imageId
+  if (!hasPlacedImage) cell.crop = freshCrop()
+}
+
 function assignAsset(asset) {
   const cell = activeProject.value?.rows.flatMap(row => row.cells).find(item => item.id === pickerCellId.value)
   if (!cell) return
-  changeProject(() => { cell.imageId = asset.id; cell.crop = freshCrop() })
+  changeProject(() => attachImage(cell, asset.id))
   assetPicker.value = false
   selectedCellId.value = cell.id
 }
