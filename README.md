@@ -1,108 +1,40 @@
-# AssetGrid
+# AssetGrid 图片宫格工作台
 
-AssetGrid is a browser-only image grid editor for turning photos and other image assets into a finished collage. It runs entirely in the browser and keeps works, custom layouts, and image assets on the local device. No account, upload server, or backend is required.
+<p>
+  <a href="./README.md"><img src="https://img.shields.io/badge/Language-中文-e9835e?style=flat-square" alt="中文" /></a>
+  <a href="./README.en.md"><img src="https://img.shields.io/badge/Language-English-6f9a76?style=flat-square" alt="English" /></a>
+  <img src="https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square" alt="Vue 3" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-293d38?style=flat-square" alt="Apache-2.0" />
+</p>
 
-[Chinese documentation](#assetgrid-中文说明)
+纯前端图片宫格编辑器。选择一个版式，把图片放进格子，自由拖动和缩放，最后导出整张成品图。作品、DIY 模板和图片素材都保存在当前浏览器中，不需要账号，也没有后端服务。
 
-## Features
+![桌面界面预览](./docs/preview-desktop.jpg)
 
-- Create a canvas in square, landscape, or portrait format and set its dimensions before adding images.
-- Start from built-in layouts, or create a custom template with up to five rows and five cells per row.
-- Resize rows and cells directly on the canvas. When a cell is removed, remaining cells in that row share the available width evenly.
-- Upload a JPG, PNG, or WebP image to any cell, or reuse an image from the local asset library.
-- Move images freely inside their cells, pinch to zoom on touch screens, and set zoom between 20% and 400% from a numeric field.
-- Read the distance from each side of a cell to the placed image and set a side distance directly in pixels.
-- Set canvas width and height, gap width, background color, divider width, and divider color.
-- Export the complete grid as PNG or JPG. Use the JSON backup to move an editable project to another computer.
-- Autosave projects and their previews in IndexedDB. Rename, copy, search through template-filtered history, or reopen a work from the left sidebar.
+## 功能预览
 
-## Tech Stack
+| 桌面 | 手机 |
+| --- | --- |
+| ![桌面](./docs/preview-desktop.jpg) | ![手机](./docs/preview-mobile.jpg) |
 
-- Vue 3
-- Vite
-- IndexedDB
-- HTML Canvas
+## 功能
 
-The application has no server-side dependency. Project data and uploaded image files stay in the current browser's storage.
+- **版式模板**：内置「经典 2 × 3」「均衡 3 × 3」「上 2 下 3」，也可以自行新增最多 5 行、每行最多 5 格的 DIY 模板，并长期保存复用。
+- **画布与格子**：新建正方形或长方形画布并设置尺寸；拖动分隔线调整行列比例；删除格子后，同排剩余格子均分该行宽度。
+- **图片裁切**：每格可上传 JPG、PNG、WebP，也能从素材库复用。图片在格内自由拖动、双指缩放，缩放比例可输入（20%–400%），并显示图片相对格子四边的像素距离。
+- **视觉设置**：画布宽高、格子间距、背景颜色、分割线宽度和颜色均可调整；编辑辅助线只在编辑时显示。
+- **作品管理**：自动保存到 IndexedDB 并生成预览图；支持重命名、复制、按模板筛选历史、继续编辑。
+- **导出与备份**：导出 PNG / JPG 成品图，或导出包含图片的 `.assetgrid.json` 备份，换电脑后导入继续编辑。
 
-## Quick Start
+## 技术栈
 
-Requires Node.js 20 or later.
+- Vue 3 + Vite
+- IndexedDB 本地存储
+- HTML Canvas 渲染与导出
 
-```sh
-git clone https://github.com/NanYuJun/AssetGrid.git
-cd AssetGrid
-npm install
-npm run dev
-```
+无后端依赖，图片不会上传到服务器。
 
-Open the address printed by Vite. For a production build:
-
-```sh
-npm run build
-npm run preview
-```
-
-The production output is written to `dist/`.
-
-## Usage
-
-1. Choose a preset layout from the left sidebar, or create and save a custom template. Template layouts and creation history are separated into independently scrolling sections; preset templates and personal templates scroll together.
-2. Set the canvas dimensions and visual settings. Drag the separators in the canvas to adjust row and column proportions.
-3. Select a cell and upload an image or choose one from the asset library. Drag the image to reposition it, and adjust the numeric zoom or the four side distances when needed.
-4. Use **Save image** to export the finished grid as PNG or JPG. Export JSON for a portable editable backup that includes the images used by the project.
-5. Return to earlier works from creation history. Changes are saved to IndexedDB automatically.
-
-If browser storage is full, export the JSON backup before closing the page. A JSON import creates a new work and does not overwrite an existing one.
-
-## Project Structure
-
-```text
-src/
-├── App.vue          # Editor UI and interaction state
-├── main.js          # Vue entry point
-├── styles.css       # Responsive visual design
-└── lib/
-    ├── canvas.js    # Grid geometry, image placement, and rendering
-    └── db.js        # IndexedDB persistence
-```
-
-## Data and Privacy
-
-- Works, custom templates, previews, and image files are stored in the browser's IndexedDB.
-- No image is uploaded to a server by the application.
-- Clearing browser site data removes local works and assets. Export JSON before clearing browser data or moving to another device.
-
-## License
-
-Released under the [Apache License 2.0](./LICENSE).
-
----
-
-## AssetGrid 中文说明
-
-AssetGrid 是一个纯前端图片宫格编辑器，用于把图片快速整理成统一尺寸的宫格作品。所有编辑和存储都在当前浏览器内完成，无需登录，也不依赖后端服务。
-
-### 功能
-
-- 新建正方形、横向或纵向画布，并在编辑前设置画布尺寸。
-- 使用内置版式，或创建最多 5 行、每行最多 5 格的 DIY 模板。
-- 在画布中拖动分隔线调整行列比例；删除格子后，同排剩余格子均分该行宽度。
-- 为每个格子上传 JPG、PNG 或 WebP 图片，或复用素材库中的已有图片。
-- 在格内自由拖动图片，支持触屏双指缩放；缩放比例可直接输入，范围为 20%–400%。
-- 查看图片相对格子四边的像素距离，并直接输入边距数值调整图片位置。
-- 设置画布宽高、格子间距、背景颜色、分割线宽度和分割线颜色。
-- 导出完整宫格为 PNG 或 JPG；导出包含图片的 JSON 备份，换电脑后仍可继续编辑。
-- 作品自动保存在 IndexedDB，可在左侧创作历史中按模板查找、重命名、复制或继续编辑。
-
-### 技术栈
-
-- Vue 3
-- Vite
-- IndexedDB
-- HTML Canvas
-
-### 本地开发
+## 本地开发
 
 需要 Node.js 20 或更高版本。
 
@@ -113,17 +45,42 @@ npm install
 npm run dev
 ```
 
-打开 Vite 输出的本地地址。生产构建：
+生产构建：
 
 ```sh
 npm run build
 npm run preview
 ```
 
-### 图片与数据
+构建产物位于 `dist/`。
 
-作品图片、DIY 模板和作品数据只保存在当前浏览器的 IndexedDB 中，不会由本应用上传到服务器。清理浏览器站点数据会删除本地作品与素材；在清理数据或换电脑前，请先导出 JSON 备份。
+## 使用流程
 
-### 开源协议
+1. 在左侧选择预设模板，或进入 DIY 模板编辑器设计版式。
+2. 新建作品时设置画布尺寸，之后可随时调整宽高、间距、背景色和分割线。
+3. 点击格子添加图片，拖动调整位置，按需设置缩放和四边距离。
+4. 点击「保存图片」导出 PNG 或 JPG；需要跨设备继续编辑时导出 JSON。
+5. 在左侧创作历史中随时回到之前的作品。
+
+## 项目结构
+
+```text
+src/
+├── App.vue          # 编辑器界面与交互状态
+├── main.js          # Vue 入口
+├── styles.css       # 响应式界面样式
+└── lib/
+    ├── canvas.js    # 宫格几何、图片定位与渲染
+    └── db.js        # IndexedDB 持久化
+docs/
+├── preview-desktop.jpg
+└── preview-mobile.jpg
+```
+
+## 数据说明
+
+作品、DIY 模板、预览图和图片文件都保存在当前浏览器的 IndexedDB 中。清理浏览器站点数据会删除本地作品与素材，清理前请先导出 JSON 备份。
+
+## 开源协议
 
 本项目采用 [Apache License 2.0](./LICENSE) 开源协议。
