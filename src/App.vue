@@ -80,10 +80,12 @@ const canUndo = computed(() => undoStack.value.length > 0)
 const canRedo = computed(() => redoStack.value.length > 0)
 const linkColumns = ref(false)
 const snapEnabled = ref(true)
-const boardZoom = ref(1)
+const boardZoom = ref(100)
 const columnsAligned = computed(() => {
-  const rows = current.value?.rows
-  return Boolean(rows?.length) && rows.every(row => row.cells.length === rows[0].cells.length)
+  const rows = current.value?.rows || []
+  const counts = new Map()
+  for (const row of rows) counts.set(row.cells.length, (counts.get(row.cells.length) || 0) + 1)
+  return [...counts.values()].some(count => count > 1)
 })
 
 function notify(message, kind = 'info') {
@@ -498,6 +500,10 @@ function imageDistances(cell, box, asset) {
   }
 }
 
+function setZoom(value) {
+  boardZoom.value = clamp(Math.round(value / 25) * 25, 25, 300)
+}
+
 function updateBoardWidth() { boardWidth.value = board.value?.clientWidth || 0 }
 
 watch(board, (element, previous) => {
@@ -514,9 +520,12 @@ function beginResize(event, box, direction) {
   const siblings = direction === 'x' ? row.cells : current.value.rows
   const index = direction === 'x' ? cellIndex : rowIndex
   if (index >= siblings.length - 1) return
-  const columnsAlign = direction === 'x' && linkColumns.value && columnsAligned.value
+  const partnerRows = direction === 'x' && linkColumns.value
+    ? current.value.rows.filter(item => item.cells.length === row.cells.length)
+    : []
+  const columnsAlign = partnerRows.length > 1
   const columnPairs = columnsAlign
-    ? current.value.rows.map(item => ({
+    ? partnerRows.map(item => ({
       first: item.cells[index], second: item.cells[index + 1],
       firstWeight: item.cells[index].weight, secondWeight: item.cells[index + 1].weight,
     }))
@@ -1034,10 +1043,10 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="canvas-section">
-            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><label v-if="columnsAligned" class="link-columns" :class="{ active: linkColumns }"><input v-model="linkColumns" type="checkbox" /><span>整列联动</span></label><label class="link-columns" :class="{ active: snapEnabled }"><input v-model="snapEnabled" type="checkbox" /><span>边缘吸附</span></label><div class="board-zoom"><button :disabled="boardZoom <= 0.5" title="缩小画布" aria-label="缩小画布" @click="boardZoom = Math.max(0.5, Math.round((boardZoom - 0.1) * 10) / 10)">−</button><span>{{ Math.round(boardZoom * 100) }}%</span><button :disabled="boardZoom >= 2" title="放大画布" aria-label="放大画布" @click="boardZoom = Math.min(2, Math.round((boardZoom + 0.1) * 10) / 10)">＋</button><button class="board-zoom-reset" title="恢复默认大小" aria-label="恢复默认画布大小" @click="boardZoom = 1">重置</button></div><span class="zoom-label">{{ columnsAligned ? (linkColumns ? '整列拖动' : '单行拖动') : '各行独立' }}</span></div></div>
+            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><label class="link-columns" :class="{ active: linkColumns }"><input v-model="linkColumns" type="checkbox" /><span>整列联动</span></label><label class="link-columns" :class="{ active: snapEnabled }"><input v-model="snapEnabled" type="checkbox" /><span>边缘吸附</span></label><div class="board-zoom"><button :disabled="boardZoom <= 25" title="缩小画布" aria-label="缩小画布" @click="setZoom(boardZoom - 25)">−</button><span>{{ boardZoom }}%</span><button :disabled="boardZoom >= 300" title="放大画布" aria-label="放大画布" @click="setZoom(boardZoom + 25)">＋</button><button class="board-zoom-reset" title="恢复默认大小" aria-label="恢复默认画布大小" @click="setZoom(100)">重置</button></div><span class="zoom-label">{{ linkColumns ? (columnsAligned ? '整列拖动' : '无可联动行') : '单行拖动' }}</span></div></div>
             <div class="canvas-stage">
               <div class="stage-ornament stage-ornament-a"></div><div class="stage-ornament stage-ornament-b"></div>
-              <div ref="board" class="canvas-board" :style="{ aspectRatio: `${current.canvas.width} / ${current.canvas.height}`, background: current.canvas.background, width: `${Math.round(boardZoom * 100)}%` }">
+              <div ref="board" class="canvas-board" :style="{ aspectRatio: `${current.canvas.width} / ${current.canvas.height}`, background: current.canvas.background, width: `${boardZoom}%` }">
                 <div v-for="(line, lineIndex) in dividerLines" :key="`divider-${lineIndex}`" class="canvas-divider" :style="{ left: `${line.x}px`, top: `${line.y}px`, width: `${line.width}px`, height: `${line.height}px`, background: canvasDivider.color }"></div>
                 <div v-for="(box, index) in boxes" :key="box.cell.id" class="grid-cell" :class="{ selected: selectedCellId === box.cell.id, 'has-image': !!box.cell.imageId }" :style="cellStyle(box)" @click="selectCell(box.cell.id)">
                   <template v-if="box.cell.imageId && assetMap.has(box.cell.imageId)"><div class="cell-image-viewport" :style="imageMarginDragStyle(box)"><img class="cell-image" :src="assetUrls[box.cell.imageId]" :style="imageStyle(box)" draggable="false" alt="" @pointerdown="beginImagePan($event, box)" @pointermove="moveImage" @pointerup="finishImagePan" @pointercancel="finishImagePan" /></div><div class="cell-photo-overlay" :style="imageMarginDragStyle(box)" @pointerdown="beginImagePan($event, box)" @pointermove="moveImage" @pointerup="finishImagePan" @pointercancel="finishImagePan"></div></template>
