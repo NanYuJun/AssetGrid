@@ -150,3 +150,12 @@
 .link-columns.active{background:#eef6ec;border-color:#b7d0b9;color:#3f6248}
 .link-columns input{margin:0;accent-color:#6f9a76;width:12px;height:12px;cursor:pointer}
 @media(max-width:620px){.link-columns{padding:3px 6px;font-size:9px}.link-columns span{display:none}}
+
+.board-zoom{display:inline-flex;align-items:center;gap:2px;border:1px solid #dfe8dd;border-radius:7px;background:#fbfdf9;padding:2px}
+.board-zoom button{width:20px;height:20px;line-height:1;border-radius:5px;background:transparent;color:#68836d;font-size:12px;font-weight:700}
+.board-zoom button:hover:not(:disabled){background:#eaf3e7;color:#3e5c45}
+.board-zoom span{min-width:34px;text-align:center;font:700 10px "DM Sans",sans-serif;color:#5f7a65}
+.board-zoom .board-zoom-reset{width:auto;padding:0 6px;font-size:9px;color:#93a596}
+.canvas-stage{overflow:auto}
+.canvas-board{align-self:center}
+@media(max-width:620px){.canvas-actions{flex-wrap:wrap;gap:6px}.board-zoom button{width:18px;height:18px}.board-zoom span{min-width:30px}}

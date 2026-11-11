@@ -79,6 +79,8 @@ const filteredProjects = computed(() => projects.value.filter(project => selecte
 const canUndo = computed(() => undoStack.value.length > 0)
 const canRedo = computed(() => redoStack.value.length > 0)
 const linkColumns = ref(false)
+const snapEnabled = ref(true)
+const boardZoom = ref(1)
 const columnsAligned = computed(() => {
   const rows = current.value?.rows
   return Boolean(rows?.length) && rows.every(row => row.cells.length === rows[0].cells.length)
@@ -525,6 +527,7 @@ function beginResize(event, box, direction) {
     totalWeight: siblings.reduce((sum, item) => sum + item.weight, 0),
     available: direction === 'x' ? boardWidth.value - current.value.canvas.gap * boardWidth.value / current.value.canvas.width * (siblings.length - 1) : boardHeight.value - current.value.canvas.gap * boardWidth.value / current.value.canvas.width * (siblings.length - 1),
     columnPairs,
+    row,
     before: mode.value === 'project' ? clone(activeProject.value) : null,
   }
   event.currentTarget.setPointerCapture(event.pointerId)
@@ -540,7 +543,11 @@ function handleResizeMove(event) {
   const deltaWeight = delta / state.available * state.totalWeight
   const pairWeight = state.firstWeight + state.secondWeight
   const minWeight = Math.min(36 / state.available * state.totalWeight, pairWeight / 2 - 0.001)
-  const first = clamp(state.firstWeight + deltaWeight, minWeight, pairWeight - minWeight)
+  let first = clamp(state.firstWeight + deltaWeight, minWeight, pairWeight - minWeight)
+  if (snapEnabled.value && !state.columnPairs && state.direction === 'x') {
+    const snapped = snapWeight(state, first)
+    if (snapped !== null) first = clamp(snapped, minWeight, pairWeight - minWeight)
+  }
   if (state.columnPairs) {
     const ratio = first / (state.firstWeight + state.secondWeight)
     for (const pair of state.columnPairs) {
@@ -559,6 +566,46 @@ function finishResize(event) {
   event.currentTarget.removeEventListener('pointermove', handleResizeMove)
   if (dragState?.kind === 'resize' && dragState.before && JSON.stringify(dragState.before.rows) !== JSON.stringify(activeProject.value.rows)) pushUndo(dragState.before)
   dragState = null
+}
+
+const SNAP_DISTANCE = 9
+
+function seamWeights(row, firstWeight, index) {
+  const weights = row.cells.map(cell => cell.weight)
+  weights[index] = firstWeight
+  weights[index + 1] = row.cells[index].weight + row.cells[index + 1].weight - firstWeight
+  return weights
+}
+
+function seamPixels(weights, index, cellSpace, gap) {
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  let x = index * gap
+  for (let i = 0; i <= index; i += 1) x += cellSpace * weights[i] / total
+  return x
+}
+
+function snapWeight(state, firstWeight) {
+  const project = current.value
+  if (!project || !boardWidth.value) return null
+  const gap = project.canvas.gap * boardWidth.value / project.canvas.width
+  const row = state.row
+  const cellSpace = boardWidth.value - gap * (row.cells.length - 1)
+  if (cellSpace <= 0) return null
+  const weights = seamWeights(row, firstWeight, state.index)
+  const seam = seamPixels(weights, state.index, cellSpace, gap)
+  const targets = [cellSpace * (state.index + 1) / row.cells.length + state.index * gap, boardWidth.value / 2]
+  for (const other of project.rows) {
+    if (other.id === row.id || other.cells.length !== row.cells.length) continue
+    targets.push(seamPixels(other.cells.map(cell => cell.weight), state.index, cellSpace, gap))
+  }
+  let best = null
+  for (const target of targets) {
+    if (Math.abs(seam - target) > SNAP_DISTANCE) continue
+    if (best === null || Math.abs(seam - target) < Math.abs(seam - best)) best = target
+  }
+  if (best === null) return null
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  return (best - state.index * gap) / cellSpace * total
 }
 
 function beginImagePan(event, box) {
@@ -987,10 +1034,10 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="canvas-section">
-            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><label v-if="columnsAligned" class="link-columns" :class="{ active: linkColumns }"><input v-model="linkColumns" type="checkbox" /><span>整列联动</span></label><span class="zoom-label">{{ columnsAligned ? (linkColumns ? '整列拖动' : '单行拖动') : '各行独立' }}</span></div></div>
+            <div class="canvas-titleline"><div><span class="section-kicker">LIVE CANVAS</span><h2>画布预览 <small>· {{ current.canvas.width }} × {{ current.canvas.height }}</small></h2></div><div class="canvas-actions"><button v-if="mode === 'project'" class="subtle-action" :disabled="!canUndo" @click="undo">↶ <span>撤销</span></button><button v-if="mode === 'project'" class="subtle-action" :disabled="!canRedo" @click="redo">↷ <span>重做</span></button><label v-if="columnsAligned" class="link-columns" :class="{ active: linkColumns }"><input v-model="linkColumns" type="checkbox" /><span>整列联动</span></label><label class="link-columns" :class="{ active: snapEnabled }"><input v-model="snapEnabled" type="checkbox" /><span>边缘吸附</span></label><div class="board-zoom"><button :disabled="boardZoom <= 0.5" title="缩小画布" aria-label="缩小画布" @click="boardZoom = Math.max(0.5, Math.round((boardZoom - 0.1) * 10) / 10)">−</button><span>{{ Math.round(boardZoom * 100) }}%</span><button :disabled="boardZoom >= 2" title="放大画布" aria-label="放大画布" @click="boardZoom = Math.min(2, Math.round((boardZoom + 0.1) * 10) / 10)">＋</button><button class="board-zoom-reset" title="恢复默认大小" aria-label="恢复默认画布大小" @click="boardZoom = 1">重置</button></div><span class="zoom-label">{{ columnsAligned ? (linkColumns ? '整列拖动' : '单行拖动') : '各行独立' }}</span></div></div>
             <div class="canvas-stage">
               <div class="stage-ornament stage-ornament-a"></div><div class="stage-ornament stage-ornament-b"></div>
-              <div ref="board" class="canvas-board" :style="{ aspectRatio: `${current.canvas.width} / ${current.canvas.height}`, background: current.canvas.background }">
+              <div ref="board" class="canvas-board" :style="{ aspectRatio: `${current.canvas.width} / ${current.canvas.height}`, background: current.canvas.background, width: `${Math.round(boardZoom * 100)}%` }">
                 <div v-for="(line, lineIndex) in dividerLines" :key="`divider-${lineIndex}`" class="canvas-divider" :style="{ left: `${line.x}px`, top: `${line.y}px`, width: `${line.width}px`, height: `${line.height}px`, background: canvasDivider.color }"></div>
                 <div v-for="(box, index) in boxes" :key="box.cell.id" class="grid-cell" :class="{ selected: selectedCellId === box.cell.id, 'has-image': !!box.cell.imageId }" :style="cellStyle(box)" @click="selectCell(box.cell.id)">
                   <template v-if="box.cell.imageId && assetMap.has(box.cell.imageId)"><div class="cell-image-viewport" :style="imageMarginDragStyle(box)"><img class="cell-image" :src="assetUrls[box.cell.imageId]" :style="imageStyle(box)" draggable="false" alt="" @pointerdown="beginImagePan($event, box)" @pointermove="moveImage" @pointerup="finishImagePan" @pointercancel="finishImagePan" /></div><div class="cell-photo-overlay" :style="imageMarginDragStyle(box)" @pointerdown="beginImagePan($event, box)" @pointermove="moveImage" @pointerup="finishImagePan" @pointercancel="finishImagePan"></div></template>
