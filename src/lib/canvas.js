@@ -7,7 +7,7 @@ const defaultDivider = () => ({ width: 2, color: '#dbe4db' })
 export function getCanvasDivider(canvas) {
   const divider = canvas?.divider
   return {
-    width: clamp(Number(divider?.width) || 0, 0, 50),
+    width: divider?.width === undefined ? defaultDivider().width : clamp(Number(divider.width) || 0, 0, 50),
     color: /^#[0-9a-fA-F]{6}$/.test(divider?.color || '') ? divider.color : '#dbe4db',
   }
 }
@@ -41,20 +41,22 @@ export function getDividerLines(project, width, height) {
   const boxes = getCellBoxes(project, width, height)
   const gap = project.canvas.gap * width / project.canvas.width
   const settings = getCanvasDivider(project.canvas)
-  const thickness = Math.min(settings.width * width / project.canvas.width, gap)
+  const thickness = settings.width * width / project.canvas.width
   if (thickness <= 0) return []
   const lines = []
+  const thicknessValue = Math.max(thickness, 1)
   for (let index = 0; index < project.rows.length - 1; index += 1) {
-    const row = project.rows[index]
-    const cell = boxes.find(box => box.row.id === row.id)
-    if (!cell) continue
-    lines.push({ x: 0, y: cell.y + cell.height + gap / 2 - thickness / 2, width, height: thickness })
+    const firstRowBoxes = boxes.filter(box => box.row.id === project.rows[index].id)
+    if (!firstRowBoxes.length) continue
+    const bottom = firstRowBoxes[0].y + firstRowBoxes[0].height + gap / 2
+    lines.push({ x: 0, y: bottom - thicknessValue / 2, width, height: thicknessValue })
   }
   for (const row of project.rows) {
     const rowBoxes = boxes.filter(box => box.row.id === row.id)
     for (let index = 0; index < rowBoxes.length - 1; index += 1) {
       const cell = rowBoxes[index]
-      lines.push({ x: cell.x + cell.width + gap / 2 - thickness / 2, y: cell.y, width: thickness, height: cell.height })
+      const right = cell.x + cell.width + gap / 2
+      lines.push({ x: right - thicknessValue / 2, y: cell.y, width: thicknessValue, height: cell.height })
     }
   }
   return lines
